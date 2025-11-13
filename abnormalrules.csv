@@ -1,0 +1,196 @@
+Order,Panel,Field,Biomarker_Name,Conventional Units,Man Abnormal Lower Limit,Man Abnormal Upper Limit,Woman Abnormal Lower Limit,Woman Abnormal Upper Limit
+1,CBC,White Blood Count (WBC),WBC,K/uL,3.5,5.9,3.5,10.8
+2,CBC,Red Blood Count (RBC),RBC,M/uL,3.9,,3.5,5.9
+3,CBC,Hemoglobin,Hemoglobin,g/dL,10,18.5,10,18.5
+4,CBC,Hematocrit,Hematocrit,%,37.5%,52.0%,32.5%,50.0%
+5,CBC,MCV,MCV,fL,10,150,10,150
+6,CBC,MCH,MCH,pg,10,34,10,34
+7,CBC,MCHC,MCHC,g/dL,29,43,29,43
+8,CBC,RDW,RDW,%,7.5%,15.4%,7.5%,15.5%
+9,CBC,Platelet Count,Platelet,K/uL,60,450,60,450
+10,CBC,MPV,MPV,fL,7.5,13,7.5,13
+11,CBC,Neutrophil Absolute Count,Neutrophil,KCells/uL,1.39,7.8,1.39,7.8
+12,CBC,Lymphocyte Absolute Count,Lymphocyte,KCells/uL,0.7,3.9,0.7,3.9
+13,CBC,Monocyte Absolute Count,Monocyte,KCells/uL,0.1,0.95,0.1,0.95
+14,CBC,Eosinophil Absolute Count,Eosinophil,KCells/uL,0.003,0.5,0.003,0.5
+15,CBC,Basophil Absolute Count,Basophil,KCells/uL,0,0.22,0,0.22
+16,CBC,% Neutrophil,% Neutrophil,%,40%,98.0%,40%,100.0%
+17,CBC,% Lymphocyte,% Lymphocyte,%,19%,44.0%,19%,44.0%
+18,CBC,% Monocyte,% Monocyte,%,0.00%,7.0%,0.00%,7.0%
+19,CBC,% Eosinophil,% Eosinophil,%,0.01%,4.0%,0.01%,4.0%
+20,CBC,% Basophil ,% Basophil ,%,0%,2.0%,0%,2.0%
+21,CBC,Immature Granulocytes (Abs),Immature Granulocytes (Abs),10^3/uL,0,0.5,0,0.5
+22,CBC,% Immature Granulocytes,% Immature Granulocytes,%,0,1,0,1
+23,Lipid,"Cholesterol, Total",Total Cholesterol,mg/dL,60,263,60,263
+24,Lipid,HDL Cholesterol,HDL,mg/dL,35,200,40,200
+25,Lipid,Triglycerides,Triglycerides,mg/dL,2,150,2,150
+26,Lipid,LDL Cholesterol,LDL,mg/dL,0.1,130,0.1,130
+27,Lipid,VLDL Cholesterol,VLDL,mg/dL,1,40,1,40
+28,Lipid,Total Cholesterol / HDL Ratio,Cholesterol/HDL Ratio,ratio,0,5,0,5
+29,Lipid,Non-HDL Cholesterol,Non-HDL Cholesterol,mg/dL,0,190,0,190
+30,Lipid,Triglycerides/HDL Ratio,Triglycerides/HDL Ratio,,0,3.5,0,3.5
+31,CMP,Glucose,Glucose,mg/dL,40,90,40,90
+32,CMP,Blood urea nitrogen (BUN),BUN,mg/dL,0.01,25,0.01,25
+33,CMP,Creatinine (Serum/Plasma),Creatinine,mg/dL,0.01,4,0.01,4
+34,CMP,BUN/Creatinine ratio,BUN/Creatinine ratio,,0.1,23,0.1,23
+35,CMP,eGFR (if non-African American/Black),eGFR,mL/min/1.73 m^2,60,480,60,480
+36,CMP,eGFR (if African American/Black),eGFR (African American/Black),mL/min/1.73 m^2,60,480,60,480
+37,CMP,Sodium,Sodium,mmol/L or mEq/L,120,160,120,159
+38,CMP,Potassium,Potassium,mmol/L or mEq/L,2.9,6.1,2.9,6.1
+39,CMP,Chloride,Chloride,mmol/L or mEq/L,80,116,81,115
+40,CMP,"Carbon Dioxide (CO2, Bicarbonate)",Carbon Dioxide,mmol/L or mEq/L,19,32,19,32
+41,CMP,Calcium (Serum),Calcium,mg/dL or mEq/dL,8.5,10.3,8.5,10.3
+42,CMP,Protein (Total Protein),Total Protein,g/dL or Eq/dL,4,8.4,4,8.4
+43,CMP,Albumin (Serum/Plasma),Albumin,g/dL or Eq/dL,0.1,20,0.1,20
+44,CMP,Globulin,Globulin,g/dL or Eq/dL,0.1,16,0.1,16
+45,CMP,Albumin/Globulin ratio (A/G),Albumin/Globulin ratio,,0.5,8,0.5,8
+46,CMP,Bilirubin,Total Bilirubin,mg/dL,0.01,5,0.01,5
+47,CMP,Alkaline Phosphatase ,Alkaline Phosphatase ,IU/L,20,147,20,147
+48,CMP,"AST (Aspartate aminotransferase/transaminase, SGOT)",AST (SGOT),U/L,0.1,33,0.1,30
+49,CMP,"ALT (Alanine aminotransferase/transaminase, SGPT)",ALT (SGPT),U/L,1,40,1,30
+50,CMP,Gamma-glutamyl transpeptidase (GGT),GGT,U/L,1,40,1,40
+51,CMP,Hemoglobin A1c (HbA1c),HbA1c,%,0.1,6.5,0.1,6.5
+52,CMP,Estimated Average Glucose (eAG),eAG (Glucose),mg/dL,60,90,60,90
+53,CMP,Phosphorus,Phosphorus,mg/dL,1.1,4.5,1.1,4.5
+54,CMP,Magnesium,Magnesium,mg/dL,0.5,3,0.5,3
+55,CMP,Anion Gap,Anion Gap,mmol/L,2,13,2,13
+56,Metabolic,Cardiac C-Reactive Protein (hs-CRP),hs-CRP,mg/L,0.01,3,0.01,3
+57,Lipoprotein,Apolipoprotein A (apoA),ApoA,mg/dL,115,250,115,250
+58,Lipoprotein,Apolipoprotein B (apoB),ApoB,mg/dL,20,120,20,119
+59,Lipoprotein,LDL-P (Low-density Lipoprotein particles),LDL-P,nmol/L,10,1410,10,1410
+60,Lipoprotein,HDL-P (High-Density Lipoprotein particles),HDL-P,umol/L,10,98,10,98
+61,Lipoprotein,Small LDL-P,Small LDL-P,nmol/L,20,467,20,467
+62,Lipoprotein,ApoB-to-ApoA ratio,ApoB/ApoA Ratio,,0,0.9,0,0.8
+63,Lipoprotein,Lipoprotein (A),Lipoprotein (A),nmol/L,0,125,0,125
+64,Lipoprotein,LDL peak size,LDL Peak Size,angstrom,217.4,300,217.4,300
+65,Lipoprotein,LDL small,LDL Small,nmol/L,0,218,0,218
+66,Lipoprotein,LDL medium,LDL Medium,nmol/L,0,300,0,300
+67,Lipoprotein,LDL pattern,LDL Pattern,,,,,
+68,Lipoprotein,HDL large,HDL Large,nmol/L,6996,20000,6996,20000
+69,Thyroid Panel,Thyroid-Stimulating Hormone (TSH),TSH,mlU/L,0.4,4.5,0.4,4.5
+70,Thyroid Panel,Total T4 (Thyroxine),Total T4,ug/dL or mcg/dL,4.5,12,4.5,12
+71,Thyroid Panel,"Free T4 (Direct) (Free Thyroxine index,T7)",Free T4 (Direct),ng/dL,0.8,3.8,0.8,3.8
+72,Thyroid Panel,Total T3 (triiodothyronine),Total T3,ng/mL,0.3,2,0.3,2
+73,Thyroid Panel,Free T3,Free T3,pg/mL,2.3,4.8,2.3,4.8
+74,Thyroid Panel,Reverse T3,Reverse T3,ng/mL,9.2,75,9.2,75
+75,Thyroid Panel,T3 Uptake,T3 Uptake,%,23,60,23,60
+76,Thyroid Panel,Thyroglobulin Antibody (TGB Ab),TGB Ab,IU/mL,0,6,0,6
+77,Thyroid Panel,Thyroid Peroxidase (TPO) Ab,TPO Ab,IU/mL,0,25,0,15
+78,Iron Panel,Ferritin (Serum),Ferritin,ng/mL,30,300,30,300
+79,Iron Panel,Iron,Iron,ug/dL,38,169,38,169
+80,Iron Panel,TIBC (Total Iron Binding Capacity),TIBC,ug/dL,100,450,100,450
+81,Iron Panel,UIBC (Unsaturated Iron Binding Capacity),UIBC,ug/dL,110,343,110,343
+82,Iron Panel,Iron Saturation,Iron Saturation,%,15,70,15,70
+83,Nutrient,"Vitamin D, Total 25-Hydroxy",Vitamin D (25-Hydroxy),ng/mL,30,150,30,150
+84,Nutrient,Vitamin B12,Vitamin B12,pg/mL,300,9000,300,9000
+85,Nutrient,"Folate (Folic Acid, Vitamin B9)",Folate,ng/mL,11,90,11,90
+86,Nutrient,"Vitamin B6 (Pyridoxine, Pyridoxal 5-Phosphate)",Vitamin B6,ng/mL,2,90,2,90
+87,Nutrient,Copper (serum),Copper (Serum),μg/dL,68,169,62,200
+88,Nutrient,Ceruloplasmin,Ceruloplasmin,mg/dL,18,53,18,53
+89,Nutrient,"Zinc, RBC","Zinc, RBC",ug/dL,87.7,166,87.7,166
+90,Nutrient,"Iodine (Blood, Serum, Plasma)",Iodine (Serum),ug/L,35,102,35,102
+91,Metabolic,Homocysteine (Homocystine),Homocysteine,mg/dL,0,14.5,0,15
+92,Antioxidant,Glutathione (GSH),Glutathione,ug/mL,176,900,176,900
+93,Hormone,DHEA Sulfate (DHEAS),DHEA Sulfate,ug/dL,13,640,13,640
+94,Hormone,IGF-1 (Insulin-like Growth Factor 1),IGF-1,ng/mL,74,256,74,256
+95,Hormone,Follicle-Stimulating Hormone (FSH),FSH,mIU/mL,1.4,12.8,1.7,10.2
+96,Hormone,Luteinizing Hormone (LH),LH,mIU/mL,1.5,15.2,1,16.9
+97,Hormone,Progesterone,Progesterone,ng/mL,0,1,0,46.3
+98,Hormone,Estradiol (E2)-to-Progesterone ratio,E2/Progesterone ratio,,0,100,0,250
+99,Hormone,Progesterone-to-Estradiol (E2) ratio,Progesterone/E2 ratio,,100,500,50,500
+100,Hormone,"Testosterone, free","Testosterone, free",pg/dL,30.3,183.2,0,2.9
+101,Hormone,"Testosterone, total","Testosterone, total",ng/dL,264,100,10,70
+102,Hormone,Estradiol (Estrogen Fraction E2),E2,pg/mL,0,60,0,60
+103,Hormone,Estrone (E1),E1,,10,50,37,229
+104,Hormone,Estriol,Estriol,ng/mL,0,0.18,0,0.21
+105,Hormone,Prolactin,Prolactin,ng/mL,0,100,1,100
+106,Hormone,"Prostate-specific antigen (PSA) %, Free","PSA%, Free",%,10,100,10,100
+107,Hormone,"Prostate-specific antigen (PSA), Total","PSA, Total",ng/mL,0,10,0,0
+108,Hormone,Sex-hormone binding globulin (SHBG),SHBG,nmol/L,0,77,0,122
+109,Hormone,Cortisol,Cortisol,mcg/dL,0,20.6,0,20.6
+110,Toxin,"Lead (Blood, Serum)",Lead (Serum),ug/dL,0,5,0,5
+111,Toxin,"Arsenic (Blood, Serum)",Arsenic (Serum),ug/L,0,12,0,12
+112,Toxin,"Mercury (Blood, Serum)",Mercury (Serum),ug/L,0,14,0,14
+113,Toxin,"Cadmium (Blood, Serum)",Cadmium (Serum),ug/L,0,5,0,5
+114,Nutrient,Methylmalonic acid (MMA),MMA,nmol/L,0,300,0,300
+115,Metabolic,Uric acid,Uric acid,mg/dL,0,8,0,8
+116,Metabolic,Amylase,Amylase,U/L,31,101,31,101
+117,Metabolic,Lipase,Lipase,U/L,13,78,13,78
+118,Metabolic,Insulin,Insulin,uIU/mL,0,10,0,10
+119,Metabolic,CRP,CRP,mg/L,0,10,0,10
+120,ESR,ESR,ESR,mm/hr,0,100,0,100
+121,Coagulation,Prothrombin Time (PT),PT,sec,10,13,10,13
+122,Coagulation,Activated Partial Thromboplastin Time (aPTT),aPTT,sec,24,33,24,33
+123,Coagulation,Prolonged PTT,Prolonged PTT,sec,0,35,0,35
+124,Coagulation,INR,INR,,0,2,0,2
+125,Fatty Acid,Omega 3 (EPA + DHA) index (88998-0),Omega 3 Index,,2.2,20,2.2,20
+126,Fatty Acid,Omega 6 Total,Omega 6 Total,,0,100,0,100
+127,Fatty Acid,Omega 6/Omega 3 ratio (48382-6),Omega 6/Omega 3 ratio,,0,21.3,0,21.3
+128,Fatty Acid,EPA/Arachidonic Acid ratio (88996-4),EPA/Arachidonic Acid ratio,,0.3,10,0.3,10
+129,Fatty Acid,Arachidonic Acid/EPA ratio,Arachidonic Acid/EPA ratio,,0,10,0,10
+130,Fatty Acid,Arachidonic Acid (88994-9),Arachidonic acid,,0,12.9,0,12.9
+131,Fatty Acid,Linoleic Acid,Linoleic Acid,,18,30,18,30
+132,Fatty Acid,EPA (88997-2),EPA,,0,10,0,10
+133,Fatty Acid,DPA,DPA,,1,10,1,10
+134,Fatty Acid,DHA (88995-6),DHA,,0,10,0,10
+135,Autoimmune,Antinuclear antibody,ANA Direct,,,,,
+136,Autoimmune,Antinuclear antibody titer,ANA Titer,,1:1,1:40,1:1,1:40
+137,Autoimmune,Antinuclear antibody pattern,ANA Pattern,,,,,
+138,Autoimmune,ANA Homogenous Pattern,Homogenous Pattern,,1:1,1:80,1:1,1:80
+139,Autoimmune,ANA Speckled Pattern,Speckled Pattern,,1:1,1:80,1:1,1:80
+140,Autoimmune,ANA Nucleolar Pattern,Nucleolar Pattern,,1:1,1:80,1:1,1:80
+141,Autoimmune,ANA Centromere Pattern,Centromere Pattern,,1:1,1:80,1:1,1:80
+142,Autoimmune,ANA Nuclear Dot Pattern,Nuclear Dot Pattern,,1:1,1:80,1:1,1:80
+143,Autoimmune,ANA Nuclear Membrane Pattern,Nuclear Membrane Pattern,,1:1,1:80,1:1,1:80
+144,Autoimmune,ANA Peripheral Pattern,Peripheral Pattern,,1:1,1:80,1:1,1:80
+145,Autoimmune,Rheumatoid factor,RF,IU/mL,0,14,0,14
+146,Autoimmune,Lyme antibody,Lyme antibody,,0,0.9,0,0.9
+147,Metabolic,Adiponectin,Adiponectin,ug/mL,2.3,15.2,2.3,15.2
+148,Metabolic,Leptin,Leptin,ng/mL,0.3,13.4,0.3,13.4
+149,Food Allergy,Clam (F207) IGE,Clam IGE,kU/L,0,3.5,0,3.5
+150,Food Allergy,Crab (F23) IGE,Crab IGE,kU/L,0,3.5,0,3.5
+151,Food Allergy,Lobster (F80) IGE,Lobster IGE,kU/L,0,3.5,0,3.5
+152,Food Allergy,Scallop (F338) IGE,Scallop IGE,kU/L,0,3.5,0,3.5
+153,Food Allergy,Shrimp (F24) IGE,Shrimp IGE,kU/L,0,3.5,0,3.5
+154,Food Allergy,Codfish (F3) IGE,Codfish IGE,kU/L,0,3.5,0,3.5
+155,Food Allergy,Salmon (F41) IGE,Salmon IGE,kU/L,0,3.5,0,3.5
+156,Food Allergy,Tuna (F40) IGE,Tuna IGE,kU/L,0,3.5,0,3.5
+157,Food Allergy,Wheat (F4) IGE,Wheat IGE,kU/L,0,3.5,0,3.5
+158,Food Allergy,Soybean (F14) IGE,Soybean IGE,kU/L,0,3.5,0,3.5
+159,Food Allergy,Sesame Seed (F10) IGE,Sesame Seed IGE,kU/L,0,3.5,0,3.5
+160,Food Allergy,Almond (F20) IGE,Almond IGE,kU/L,0,3.5,0,3.5
+161,Food Allergy,Cashew Nut (F202) IGE,Cashew Nut IGE,kU/L,0,3.5,0,3.5
+162,Food Allergy,Peanut (F13) IGE,Peanut IGE,kU/L,0,3.5,0,3.5
+163,Food Allergy,Walnut (F256) IGE,Walnut IGE,kU/L,0,3.5,0,3.5
+164,Food Allergy,Hazelnut (F17) IGE,Hazelnut IGE,kU/L,0,3.5,0,3.5
+165,Food Allergy,Egg White (F1) IGE,Egg White IGE,kU/L,0,3.5,0,3.5
+166,Food Allergy,Cow's Milk (F2) IGE,Cow's Milk IGE,kU/L,0,3.5,0,3.5
+167,Microalbumin,Microalbumin,Microalbumin,mg/dL,0,0.2,0,0.2
+168,uACR,Urine - Albumin,Urine Albumin,ug/mL,,,,
+169,uACR,Urine - Creatinine,Urine Creatinine,mg/dL,20,320,20,320
+170,uACR,Albumin/Creatinine ratio (ACR),Urine Albumin/Creatinine ratio,mg/g,0,300,0,300
+171,uPCR,Urine Protein/Creatinine Ratio,Urine Protein/Creatinine ratio,mg/g,0,350,0,350
+172,Urinalysis,Urine - Ketones,Urine Ketones,mg/dL,0,2,0,2
+173,Urinalysis,Urine - Appearance,Urine Appearance,,,,,
+174,Urinalysis,Urine - Color,Urine Color,,,,,
+175,Urinalysis,Urine - Bilirubin,Urine Bilirubin,,,,,
+176,Urinalysis,"Urobilinogen,Semi-Qn","Urobilinogen,Semi-Qn",,,,,
+177,Urinalysis,Urine - Glucose,Urine Glucose,mg/dL,0,15,0,15
+178,Urinalysis,Urine - WBC,Urine WBC,/hpf,0,5,0,5
+179,Urinalysis,Urine - WBC Esterase,Urine WBC Esterase,,,,,
+180,Urinalysis,Urine - Nitrite,Urine Nitrite,,,,,
+181,Urinalysis,Urine - Occult Blood,Urine Occult Blood,,,,,
+182,Urinalysis,Urine - RBC,Urine RBC,,0,3,0,5
+183,Urinalysis,Urine - Protein,Urine Protein,g/dL,0,0.4,0,0.4
+184,Urinalysis,Urine - Epithelial cells (non renal),Urine Epithelial cells (non renal),/HPF (High Power Field),0,10,0,10
+185,Urinalysis,Urine - Squamous Epithelial cells,Urine Squamous Epithelial cells,/HPF (High Power Field),0,5,0,5
+186,Urinalysis,Urine - Transitional Epithelial cells,Urine Transitional Epithelial cells,/HPF (High Power Field),0,2,0,2
+187,Urinalysis,Urine - Renal Epithelial cells,Urine Renal Epithelial cells,/HPF (High Power Field),0,3,0,3
+188,Urinalysis,Urine - Bacteria,Urine Bacteria,"VALUE: Negative, None See, Few, Detected",,,,
+189,Urinalysis,Urine - Hyaline Casts,Urine Hyaline Casts,,0,2,0,2
+190,Urinalysis,Urine - Casts,Urine Casts,,0,2,0,2
+191,Urinalysis,Urine - Granular Casts,Urine Granular Casts,,0,2,0,2
+192,Urinalysis,Urine - Specific Gravity,Urine Specific Gravity,,1.001,1.035,1.001,1.035
+193,Urinalysis,Urine - pH,Urine pH,,5.5,8,5.5,8
+194,Urine Cystatin C,Urine Cystatin C,Urine Cystatin C,,0,1.23,0,1.23
+195,C-Peptide,C-Peptide,C-Peptide,ng/mL,0.4,4.4,0.4,4.4
