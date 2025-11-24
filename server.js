@@ -26,7 +26,7 @@ app.use(cors());
 let rules = [];
 const CSV_HEADERS = [
   'Based_On',
-  'Drug Category', 
+  'Drug Category',
   'Drug Class',
   'Medications',
   'AHA Lab Trigger - Organs',
@@ -78,8 +78,8 @@ function getAbnormalBiomarkers(biomarkers, patientSex) {
   const abnormals = [];
 
   for (const [key, value] of Object.entries(biomarkers)) {
-    const rule = abnormalRules.find(r => 
-      r.biomarkerName.toLowerCase() === key.toLowerCase() || 
+    const rule = abnormalRules.find(r =>
+      r.biomarkerName.toLowerCase() === key.toLowerCase() ||
       r.field.toLowerCase() === key.toLowerCase()
     );
     if (!rule) continue;
@@ -98,7 +98,6 @@ function getAbnormalBiomarkers(biomarkers, patientSex) {
       abnormals.push(`abnormal ${status} ${rule.biomarkerName}`);
     }
   }
-
   return abnormals;
 }
 
@@ -169,7 +168,7 @@ loadAbnormalRules();
 function processOrganData(organData) {
   console.log('\n[ORGAN PROCESSING] Starting organ data analysis...');
   console.log(`[ORGAN PROCESSING] OrganData type:`, typeof organData);
-  
+
   if (!organData || Object.keys(organData).length === 0) {
     console.log('[ORGAN PROCESSING] No organ data available');
     return '';
@@ -178,15 +177,15 @@ function processOrganData(organData) {
   try {
     const parsedOrganData = typeof organData === 'string' ? JSON.parse(organData) : organData;
     console.log('[ORGAN PROCESSING] Parsed organ data:', JSON.stringify(parsedOrganData, null, 2));
-    
+
     const affectedOrgans = [];
-    
+
     for (const [organName, organInfo] of Object.entries(parsedOrganData)) {
       const finalScore = organInfo.finalScore;
       console.log(`[ORGAN PROCESSING] Analyzing ${organName}: finalScore = ${finalScore}`);
-      
+
       let status = null;
-      
+
       if (finalScore === 6) {
         status = 'stressed';
         console.log(`[ORGAN PROCESSING] ✓ ${organName} is STRESSED (score: 6)`);
@@ -199,16 +198,16 @@ function processOrganData(organData) {
       } else {
         console.log(`[ORGAN PROCESSING] ○ ${organName} is NORMAL (score: ${finalScore})`);
       }
-      
+
       if (status) {
         affectedOrgans.push(`${status} ${organName.toLowerCase()}`);
       }
     }
-    
+
     const result = affectedOrgans.join(', ');
     console.log(`[ORGAN PROCESSING] Final affected organs: "${result}"`);
     return result;
-    
+
   } catch (error) {
     console.error('[ORGAN PROCESSING] ERROR parsing organ data:', error.message);
     return '';
@@ -221,22 +220,22 @@ async function callLabResultsAPI(organizationId, patientId, biomarkers, labDate,
   console.log(`[LAB API] Patient ID: ${patientId}`);
   console.log(`[LAB API] Lab Date: ${labDate}`);
   console.log(`[LAB API] Biomarkers:`, JSON.stringify(biomarkers, null, 2));
-  
+
   try {
     const dateParts = labDate.split('/');
     const isoDate = new Date(`${dateParts[2]}-${dateParts[0]}-${dateParts[1]}`).toISOString();
     console.log(`[LAB API] Converted date to ISO: ${isoDate}`);
-    
+
     const url = `https://21rn85vlfa.execute-api.us-east-1.amazonaws.com/organizations/${organizationId}/patients/${patientId}/lab-results`;
     console.log(`[LAB API] URL: ${url}`);
-    
+
     const payload = {
       biomarkers: biomarkers,
       diagnosticResultDate: isoDate
     };
-    
+
     console.log(`[LAB API] Request payload:`, JSON.stringify(payload, null, 2));
-    
+
     const response = await axios.post(url, payload, {
       headers: {
         'Content-Type': 'application/json',
@@ -244,11 +243,11 @@ async function callLabResultsAPI(organizationId, patientId, biomarkers, labDate,
       },
       timeout: 30000
     });
-    
+
     console.log('[LAB API] ✓ Successfully received response');
-    
+
     return response.data;
-    
+
   } catch (error) {
     console.error('[LAB API] ERROR:', error.message);
     if (error.response) {
@@ -267,7 +266,7 @@ function getAllDrugClasses() {
 function exactMedicationMatch(medName) {
   console.log(`\n[STEP 1] Searching for exact match: "${medName}"`);
   const lowerMedName = medName.toLowerCase();
-  
+
   for (const rule of rules) {
     if (rule.medications.has(lowerMedName)) {
       console.log(`[STEP 1] ✓ EXACT MATCH FOUND in row ${rule.rowIndex}`);
@@ -275,17 +274,17 @@ function exactMedicationMatch(medName) {
       return rule;
     }
   }
-  
+
   console.log(`[STEP 1] ✗ No exact match found for "${medName}"`);
   return null;
 }
 
 async function identifyDrugClassWithGemini(medName) {
   console.log(`\n[STEP 2] Querying Gemini API for medication: "${medName}"`);
-  
+
   const drugClasses = getAllDrugClasses();
   console.log(`[STEP 2] Available drug classes in CSV: ${drugClasses.length} classes`);
-  
+
   const drugClassMap = {};
   rules.filter(r => r.basedOn.toLowerCase() === 'class').forEach(rule => {
     if (!drugClassMap[rule.drugClass]) {
@@ -299,9 +298,9 @@ async function identifyDrugClassWithGemini(medName) {
 Medication Name: "${medName}"
 
 Available Drug Classes in our database:
-${Object.entries(drugClassMap).map(([className, meds]) => 
-  `- ${className}`
-).join('\n')}
+${Object.entries(drugClassMap).map(([className, meds]) =>
+    `- ${className}`
+  ).join('\n')}
 
 Please analyze and respond in the following JSON format ONLY (no additional text):
 {
@@ -324,7 +323,7 @@ If not, set foundInDatabase to false and provide the actual real-world drug clas
     }
 
     console.log('[STEP 2] Sending request to Gemini API...');
-    
+
     const geminiResponse = await axios.post(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`,
       {
@@ -337,9 +336,9 @@ If not, set foundInDatabase to false and provide the actual real-world drug clas
     );
 
     console.log('[STEP 2] ✓ Received response from Gemini API');
-    
+
     const responseText = geminiResponse.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    
+
     if (!responseText) {
       console.error('[STEP 2] ERROR: No valid response from Gemini');
       return null;
@@ -370,8 +369,8 @@ If not, set foundInDatabase to false and provide the actual real-world drug clas
 
 function matchDrugClassToRule(drugClassName, medName) {
   console.log(`\n[STEP 3] Matching drug class "${drugClassName}" to rules`);
-  
-  const matchingRules = rules.filter(r => 
+
+  const matchingRules = rules.filter(r =>
     r.drugClass.toLowerCase() === drugClassName.toLowerCase()
   );
 
@@ -383,7 +382,7 @@ function matchDrugClassToRule(drugClassName, medName) {
   }
 
   const classBasedRule = matchingRules.find(r => r.basedOn.toLowerCase() === 'class');
-  
+
   if (classBasedRule) {
     console.log(`[STEP 3] ✓ Found CLASS-based rule at row ${classBasedRule.rowIndex}`);
     return classBasedRule;
@@ -395,11 +394,11 @@ function matchDrugClassToRule(drugClassName, medName) {
 
 function addMedicationToCSV(drugClass, medName) {
   console.log(`\n[UPDATE CSV] Adding "${medName}" to drug class "${drugClass}" in CSV`);
-  
+
   try {
     const csvPath = path.join(__dirname, 'rules1.csv');
     const csvContent = fs.readFileSync(csvPath, 'utf-8');
-    
+
     const records = parse(csvContent, {
       columns: true,
       skip_empty_lines: false,
@@ -420,11 +419,11 @@ function addMedicationToCSV(drugClass, medName) {
           .split(',')
           .map(m => m.trim())
           .filter(Boolean);
-        
+
         if (!medArray.some(m => m.toLowerCase() === medName.toLowerCase())) {
           medArray.push(medName);
           record['Medications'] = medArray.join(', ');
-          
+
           updated = true;
           console.log(`[UPDATE CSV] ✓ Added "${medName}" to row ${i + 2}`);
           console.log(`[UPDATE CSV] Updated medications: ${record['Medications']}`);
@@ -444,7 +443,7 @@ function addMedicationToCSV(drugClass, medName) {
 
       fs.writeFileSync(csvPath, output);
       console.log('[UPDATE CSV] ✓ CSV file updated successfully');
-      
+
       loadRules();
       console.log('[UPDATE CSV] ✓ Rules reloaded from updated CSV');
     } else {
@@ -459,11 +458,11 @@ function addMedicationToCSV(drugClass, medName) {
 
 function addNewDrugClassToCSV(drugClass, medName, geminiResult) {
   console.log(`\n[ADD NEW CLASS] Adding new drug class "${drugClass}" with medication "${medName}"`);
-  
+
   try {
     const csvPath = path.join(__dirname, 'rules1.csv');
     const csvContent = fs.readFileSync(csvPath, 'utf-8');
-    
+
     const records = parse(csvContent, {
       columns: true,
       skip_empty_lines: false,
@@ -496,7 +495,7 @@ function addNewDrugClassToCSV(drugClass, medName, geminiResult) {
 
     fs.writeFileSync(csvPath, output);
     console.log('[ADD NEW CLASS] ✓ New drug class added to CSV');
-    
+
     loadRules();
     console.log('[ADD NEW CLASS] ✓ Rules reloaded from updated CSV');
 
@@ -540,11 +539,11 @@ async function processMedication(medName, dose, date, affectedOrgans = '', bioma
   } else if (geminiResult.actualDrugClass) {
     console.log(`[PROCESSING] ⚠ STEP 2 - medication belongs to NEW drug class: "${geminiResult.actualDrugClass}"`);
     console.log(`[PROCESSING] ⚠ Adding to CSV but SKIPPING response for this request`);
-    
+
     addNewDrugClassToCSV(geminiResult.actualDrugClass, medName, geminiResult);
-    
-    return { 
-      _skipInResponse: true, 
+
+    return {
+      _skipInResponse: true,
       reason: 'new_class_added',
       medName,
       drugClass: geminiResult.actualDrugClass,
@@ -578,19 +577,19 @@ app.post('/test', async (req, res) => {
   console.log('█'.repeat(80) + '\n');
   console.log('[REQUEST] Body:', JSON.stringify(req.body, null, 2));
 
-  const { 
-    labDate, 
-    patientSex, 
-    biomarkers, 
-    medicationList, 
-    organizationId, 
-    patientId 
+  const {
+    labDate,
+    patientSex,
+    biomarkers,
+    medicationList,
+    organizationId,
+    patientId
   } = req.body;
 
   if (!labDate || !patientSex || !biomarkers || !medicationList || !organizationId || !patientId) {
     console.log('[REQUEST] ✗ Missing required fields');
-    return res.status(400).json({ 
-      error: 'Required fields: labDate, patientSex, biomarkers, medicationList, organizationId, patientId' 
+    return res.status(400).json({
+      error: 'Required fields: labDate, patientSex, biomarkers, medicationList, organizationId, patientId'
     });
   }
 
@@ -610,7 +609,7 @@ app.post('/test', async (req, res) => {
     console.log('[REQUEST] ✗ Missing or invalid Authorization header');
     return res.status(401).json({ error: 'Bearer token required in Authorization header' });
   }
-  
+
   const bearerToken = authHeader.substring(7);
   console.log(`[REQUEST] Bearer token extracted: ${bearerToken.substring(0, 20)}...`);
 
@@ -619,12 +618,12 @@ app.post('/test', async (req, res) => {
     console.log('\n' + '▓'.repeat(80));
     console.log('▓  STEP 1: Calling Lab Results API'.padEnd(79) + '▓');
     console.log('▓'.repeat(80));
-    
+
     const labResultsResponse = await callLabResultsAPI(
-      organizationId, 
-      patientId, 
-      biomarkers, 
-      labDate, 
+      organizationId,
+      patientId,
+      biomarkers,
+      labDate,
       bearerToken
     );
 
@@ -632,7 +631,7 @@ app.post('/test', async (req, res) => {
     console.log('\n' + '▓'.repeat(80));
     console.log('▓  STEP 2: Processing Organ Data'.padEnd(79) + '▓');
     console.log('▓'.repeat(80));
-    
+
     const organDataString = labResultsResponse.OrganData || '{}';
     const affectedOrgans = processOrganData(organDataString);
     console.log(`[REQUEST] Affected organs to use for medications: "${affectedOrgans}"`);
@@ -641,8 +640,14 @@ app.post('/test', async (req, res) => {
     console.log('\n' + '▓'.repeat(80));
     console.log('▓  STEP 2.5: Computing Abnormal Biomarkers'.padEnd(79) + '▓');
     console.log('▓'.repeat(80));
-    
-    const abnormalDescriptions = getAbnormalBiomarkers(biomarkers, patientSex);
+    const filteredBiomarkers = Object.fromEntries(
+      Object.entries(biomarkers).filter(([_, value]) =>
+        value !== null && value !== undefined && value !== ''
+      )
+    );
+
+
+    const abnormalDescriptions = getAbnormalBiomarkers(filteredBiomarkers, patientSex);
     const biomarkerAbnormalString = abnormalDescriptions.join(', ') || '';
     console.log(`[REQUEST] Abnormal biomarkers: "${biomarkerAbnormalString}"`);
 
@@ -657,9 +662,9 @@ app.post('/test', async (req, res) => {
     for (let i = 0; i < medicationList.length; i++) {
       const med = medicationList[i];
       console.log(`\n[REQUEST] Processing medication ${i + 1}/${medicationList.length}`);
-      
+
       const result = await processMedication(med.name, med.dose, labDate, affectedOrgans, biomarkerAbnormalString);
-      
+
       // CHANGE: Check if medication should be skipped in response
       if (result._skipInResponse) {
         console.log(`[REQUEST] ⚠ Skipping "${med.name}" from response - ${result.reason}`);
@@ -674,20 +679,20 @@ app.post('/test', async (req, res) => {
       }
     }
 
-    const response = { 
-    //   labResultsData: {
-    //     id: labResultsResponse.id,
-    //     maxScore: labResultsResponse.MaxScore,
-    //     maxScoreOrgan: labResultsResponse.MaxScoreOrgan,
-    //     organData: organDataString,
-    //     affectedOrgans: affectedOrgans,
-    //     prescriptionLink: labResultsResponse.PrescriptionLink,
-    //     recommendations: labResultsResponse.Recommendations,
-    //     resultStatus: labResultsResponse.ResultStatus,
-    //     insightsDiet: labResultsResponse.InsightsDiet,
-    //     insightsHydration: labResultsResponse.InsightsHydration,
-    //     insightsRest: labResultsResponse.InsightsRest
-    //   },
+    const response = {
+      //   labResultsData: {
+      //     id: labResultsResponse.id,
+      //     maxScore: labResultsResponse.MaxScore,
+      //     maxScoreOrgan: labResultsResponse.MaxScoreOrgan,
+      //     organData: organDataString,
+      //     affectedOrgans: affectedOrgans,
+      //     prescriptionLink: labResultsResponse.PrescriptionLink,
+      //     recommendations: labResultsResponse.Recommendations,
+      //     resultStatus: labResultsResponse.ResultStatus,
+      //     insightsDiet: labResultsResponse.InsightsDiet,
+      //     insightsHydration: labResultsResponse.InsightsHydration,
+      //     insightsRest: labResultsResponse.InsightsRest
+      //   },
       medicationList: results
     };
 
@@ -696,7 +701,7 @@ app.post('/test', async (req, res) => {
       response.skippedMedications = skippedMedications;
       console.log(`\n[RESPONSE] ${skippedMedications.length} medication(s) skipped and added to database`);
     }
-    
+
     console.log('\n' + '='.repeat(80));
     console.log('[RESPONSE] Final Response:');
     console.log('='.repeat(80));
@@ -708,8 +713,8 @@ app.post('/test', async (req, res) => {
   } catch (error) {
     console.error('\n[ERROR] Request processing failed:', error.message);
     console.error(error.stack);
-    
-    res.status(500).json({ 
+
+    res.status(500).json({
       error: 'Failed to process request',
       message: error.message,
       details: error.response?.data || null
@@ -746,18 +751,18 @@ function createBlankResponse(name, dose, date, affectedOrgans = '', reason = 'no
 function formatResponse(name, dose, date, rule, matchType, geminiResult = null, affectedOrgans = '', biomarkerAbnormal = '') {
   console.log(`[RESPONSE] Formatting response - Match Type: ${matchType}`);
   console.log(`[RESPONSE] Using affected organs: "${affectedOrgans}"`);
-  
+
   return {
     name,
     dose: dose || '',
     date: date || '',
-    drugCategory: rule.drugCategory,
+    // drugCategory: rule.drugCategory,
     drugClass: rule.drugClass,
     cautionHeadline: rule.cautionHeadline,
     cautionNote: rule.cautionNote,
     icd10: rule.icd10,
     snomed: rule.snomed,
-    ahaLabTriggerOrgans: affectedOrgans || rule.ahaLabTriggerOrgans, 
+    ahaLabTriggerOrgans: affectedOrgans || rule.ahaLabTriggerOrgans,
     biomarkerAbnormal,
     matchType,
     ruleHit: rule.rowIndex,
