@@ -29,7 +29,8 @@ const CSV_HEADERS = [
   'Drug Category',
   'Drug Class',
   'Medications',
-  'AHA Lab Trigger - Organs',
+  'AHA Lab Trigger - Organs Problematic',
+  'AHA Lab Trigger - Organs Dysfunctional',
   'AHA Lab Trigger - Biomarker Abnormal',
   'AHA Lab Trigger - Biomarker Low',
   'AHA Lab Trigger - Biomarker High',
@@ -125,9 +126,11 @@ function loadRules() {
       const drugClass = r['Drug Class']?.trim() || '';
       const medsRaw = r['Medications']?.trim() || '';
       const cautionNote = r['Caution Note']?.trim() || '';
+      const cautionHeadline = r['Caution Headline']?.trim() || '';
       const icd10 = r['ICD-10 Diagnostic Code']?.trim() || '';
       const snomed = r['SNOMED']?.trim() || '';
-      const ahaLabTriggerOrgans = r['AHA Lab Trigger - Organs']?.trim() || '';
+      const ahaLabTriggerOrgansProblematic = r['AHA Lab Trigger - Organs Problematic']?.trim() || '';
+      const ahaLabTriggerOrgansDysfunctional = r['AHA Lab Trigger - Organs Dysfunctional']?.trim() || '';
       const ahaLabTriggerBiomarkerAbnormal = r['AHA Lab Trigger - Biomarker Abnormal']?.trim() || '';
       const ahaLabTriggerBiomarkerLow = r['AHA Lab Trigger - Biomarker Low']?.trim() || '';
       const ahaLabTriggerBiomarkerHigh = r['AHA Lab Trigger - Biomarker High']?.trim() || '';
@@ -148,10 +151,12 @@ function loadRules() {
         drugClass,
         medications: medsSet,
         medicationsArray: Array.from(medsSet),
+        cautionHeadline,
         cautionNote,
         icd10,
         snomed,
-        ahaLabTriggerOrgans,
+        ahaLabTriggerOrgansProblematic,
+        ahaLabTriggerOrgansDysfunctional,
         ahaLabTriggerBiomarkerAbnormal,
         ahaLabTriggerBiomarkerLow,
         ahaLabTriggerBiomarkerHigh,
@@ -173,7 +178,7 @@ function processOrganData(organData) {
 
   if (!organData || Object.keys(organData).length === 0) {
     console.log('[ORGAN PROCESSING] No organ data available');
-    return '';
+    return [];
   }
 
   try {
@@ -202,17 +207,24 @@ function processOrganData(organData) {
       }
 
       if (status) {
-        affectedOrgans.push(`${status} ${organName.toLowerCase()}`);
+        affectedOrgans.push({
+          status,
+          organName: organName.toLowerCase(),
+          finalScore,
+          display: `${status} ${organName.toLowerCase()}`
+        });
       }
     }
 
-    const result = affectedOrgans.join(', ');
-    console.log(`[ORGAN PROCESSING] Final affected organs: "${result}"`);
-    return result;
+    // Sort globally by score desc for logging (optional, but consistent)
+    affectedOrgans.sort((a, b) => b.finalScore - a.finalScore);
+    const resultString = affectedOrgans.map(item => item.display).join(', ');
+    console.log(`[ORGAN PROCESSING] Final affected organs (sorted by score desc): "${resultString}"`);
+    return affectedOrgans;
 
   } catch (error) {
     console.error('[ORGAN PROCESSING] ERROR parsing organ data:', error.message);
-    return '';
+    return [];
   }
 }
 
@@ -477,7 +489,8 @@ function addNewDrugClassToCSV(drugClass, medName, geminiResult) {
       'Drug Category': '',
       'Drug Class': drugClass,
       'Medications': medName,
-      'AHA Lab Trigger - Organs': '',
+      'AHA Lab Trigger - Organs Problematic': '',
+      'AHA Lab Trigger - Organs Dysfunctional': '',
       'AHA Lab Trigger - Biomarker Abnormal': '',
       'AHA Lab Trigger - Biomarker Low': '',
       'AHA Lab Trigger - Biomarker High': '',
@@ -539,29 +552,34 @@ function filterAbnormalBiomarkers(abnormalDescriptions, rule) {
 
     const direction = parts[1]; // 'low' or 'high'
     const biomarkerName = parts.slice(2).join(' ').toLowerCase();
-    const fullDesc = desc; // Keep original casing
+    const fullDesc = desc; // Keep original casing for specific matches
+    const genericDesc = `abnormal ${parts.slice(2).join(' ')}`; // Generic for abnormal trigger match
 
-    if (included.has(fullDesc)) continue; // Already included
+    if (included.has(genericDesc)) continue; // Avoid duplicates on generic
 
     let shouldInclude = false;
+    let toInclude = fullDesc; // Default to full if specific match
 
-    // Check abnormal triggers (any direction)
-    if (abnormalTriggers.some(trigger => biomarkerName.includes(trigger) || trigger.includes(biomarkerName))) {
+    // Check low triggers first
+    if (direction === 'low' && lowTriggers.some(trigger => biomarkerName.includes(trigger) || trigger.includes(biomarkerName))) {
       shouldInclude = true;
-    }
-    // Check low triggers
-    else if (direction === 'low' && lowTriggers.some(trigger => biomarkerName.includes(trigger) || trigger.includes(biomarkerName))) {
-      shouldInclude = true;
+      toInclude = fullDesc;
     }
     // Check high triggers
     else if (direction === 'high' && highTriggers.some(trigger => biomarkerName.includes(trigger) || trigger.includes(biomarkerName))) {
       shouldInclude = true;
+      toInclude = fullDesc;
+    }
+    // Check abnormal triggers (any direction) - use generic
+    else if (abnormalTriggers.some(trigger => biomarkerName.includes(trigger) || trigger.includes(biomarkerName))) {
+      shouldInclude = true;
+      toInclude = genericDesc;
     }
 
     if (shouldInclude) {
-      filtered.push(fullDesc);
-      included.add(fullDesc);
-      console.log(`[FILTER BIOMARKERS] ✓ Included: ${fullDesc} (direction: ${direction}, biomarker: ${biomarkerName})`);
+      filtered.push(toInclude);
+      included.add(genericDesc);
+      console.log(`[FILTER BIOMARKERS] ✓ Included: ${toInclude} (direction: ${direction}, biomarker: ${biomarkerName})`);
     } else {
       console.log(`[FILTER BIOMARKERS] ○ Excluded: ${fullDesc}`);
     }
@@ -571,16 +589,69 @@ function filterAbnormalBiomarkers(abnormalDescriptions, rule) {
   return filtered;
 }
 
-async function processMedication(medName, dose, date, affectedOrgans = '', abnormalBiomarkers = []) {
+function filterAffectedOrgans(affectedOrgansArray, rule) {
+  if (!affectedOrgansArray || affectedOrgansArray.length === 0 || !rule) {
+    console.log(`[FILTER ORGANS] No affected organs array or rule provided`);
+    return '';
+  }
+
+  console.log(`[FILTER ORGANS] Filtering ${affectedOrgansArray.length} affected organs for rule row ${rule.rowIndex} (Drug Class: ${rule.drugClass})`);
+
+  // Parse problematic and dysfunctional triggers from rule
+  const problematicTriggers = rule.ahaLabTriggerOrgansProblematic
+    ? rule.ahaLabTriggerOrgansProblematic.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
+    : [];
+  const dysfunctionalTriggers = rule.ahaLabTriggerOrgansDysfunctional
+    ? rule.ahaLabTriggerOrgansDysfunctional.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
+    : [];
+
+  console.log(`[FILTER ORGANS] Problematic triggers: [${problematicTriggers.join(', ')}]`);
+  console.log(`[FILTER ORGANS] Dysfunctional triggers: [${dysfunctionalTriggers.join(', ')}]`);
+
+  const filtered = [];
+
+  for (const item of affectedOrgansArray) {
+    const { status, organName, finalScore, display } = item;
+    let shouldInclude = false;
+
+    if (status === 'problematic') {
+      shouldInclude = problematicTriggers.some(trigger => 
+        organName.includes(trigger) || trigger.includes(organName)
+      );
+    } else if (status === 'dysfunctional') {
+      shouldInclude = dysfunctionalTriggers.some(trigger => 
+        organName.includes(trigger) || trigger.includes(organName)
+      );
+    }
+    // Stressed organs are not checked (excluded unless you add a trigger column)
+
+    if (shouldInclude) {
+      filtered.push(item);
+      console.log(`[FILTER ORGANS] ✓ Included: ${display} (status: ${status}, organ: ${organName}, score: ${finalScore})`);
+    } else {
+      console.log(`[FILTER ORGANS] ○ Excluded: ${display} (status: ${status}, organ: ${organName}, score: ${finalScore})`);
+    }
+  }
+
+  // Sort filtered by finalScore descending (dysfunctional > problematic > stressed)
+  filtered.sort((a, b) => b.finalScore - a.finalScore);
+
+  const result = filtered.map(item => item.display).join(', ');
+  console.log(`[FILTER ORGANS] Filtered and sorted down to: "${result}"`);
+  return result;
+}
+
+async function processMedication(medName, dose, date, affectedOrgansArray = [], abnormalBiomarkers = []) {
+  const affectedOrgansString = affectedOrgansArray.map(item => item.display).join(', ');
   console.log('\n' + '='.repeat(80));
   console.log(`[PROCESSING] Medication: "${medName}"`);
-  console.log(`[PROCESSING] Affected Organs from Lab: "${affectedOrgans}"`);
+  console.log(`[PROCESSING] Affected Organs from Lab: "${affectedOrgansString}"`);
   console.log(`[PROCESSING] Total Abnormal Biomarkers: ${abnormalBiomarkers.length}`);
   console.log('='.repeat(80));
 
   if (!medName || typeof medName !== 'string') {
     console.log('[PROCESSING] ✗ Invalid medication name');
-    return createBlankResponse(medName, dose, date, affectedOrgans, 'Invalid name', null, []);
+    return createBlankResponse(medName, dose, date, 'Invalid name', null, [], '');
   }
 
   let matchedRule = exactMedicationMatch(medName);
@@ -588,7 +659,8 @@ async function processMedication(medName, dose, date, affectedOrgans = '', abnor
   if (matchedRule) {
     console.log(`[PROCESSING] ✓ STEP 1 succeeded - exact match found`);
     const filteredAbnormals = filterAbnormalBiomarkers(abnormalBiomarkers, matchedRule);
-    return formatResponse(medName, dose, date, matchedRule, 'exact_match', null, affectedOrgans, filteredAbnormals);
+    const filteredOrgans = filterAffectedOrgans(affectedOrgansArray, matchedRule);
+    return formatResponse(medName, dose, date, matchedRule, 'exact_match', null, filteredOrgans, filteredAbnormals);
   }
 
   console.log(`[PROCESSING] Proceeding to STEP 2 - Gemini API lookup`);
@@ -596,7 +668,7 @@ async function processMedication(medName, dose, date, affectedOrgans = '', abnor
 
   if (!geminiResult) {
     console.log('[PROCESSING] ✗ STEP 2 failed - Gemini API error');
-    return createBlankResponse(medName, dose, date, affectedOrgans, 'Gemini API error', null, []);
+    return createBlankResponse(medName, dose, date, 'Gemini API error', null, [], '');
   }
 
   let drugClassToMatch = null;
@@ -619,7 +691,7 @@ async function processMedication(medName, dose, date, affectedOrgans = '', abnor
     };
   } else {
     console.log('[PROCESSING] ✗ STEP 2 failed - could not identify drug class');
-    return createBlankResponse(medName, dose, date, affectedOrgans, 'Drug class not identified', null, []);
+    return createBlankResponse(medName, dose, date, 'Drug class not identified', null, [], '');
   }
 
   console.log(`[PROCESSING] Proceeding to STEP 3 - matching drug class to rules`);
@@ -627,7 +699,7 @@ async function processMedication(medName, dose, date, affectedOrgans = '', abnor
 
   if (!matchedRule) {
     console.log('[PROCESSING] ✗ STEP 3 failed - no matching rule found');
-    return createBlankResponse(medName, dose, date, affectedOrgans, `Drug class "${drugClassToMatch}" not found in rules`, geminiResult, []);
+    return createBlankResponse(medName, dose, date, `Drug class "${drugClassToMatch}" not found in rules`, geminiResult, [], '');
   }
 
   console.log(`[PROCESSING] ✓ STEP 3 succeeded - matched to row ${matchedRule.rowIndex}`);
@@ -635,7 +707,8 @@ async function processMedication(medName, dose, date, affectedOrgans = '', abnor
   addMedicationToCSV(matchedRule.drugClass, medName);
 
   const filteredAbnormals = filterAbnormalBiomarkers(abnormalBiomarkers, matchedRule);
-  return formatResponse(medName, dose, date, matchedRule, 'gemini_match', geminiResult, affectedOrgans, filteredAbnormals);
+  const filteredOrgans = filterAffectedOrgans(affectedOrgansArray, matchedRule);
+  return formatResponse(medName, dose, date, matchedRule, 'gemini_match', geminiResult, filteredOrgans, filteredAbnormals);
 }
 
 app.post('/test', async (req, res) => {
@@ -702,8 +775,9 @@ app.post('/test', async (req, res) => {
     console.log('▓'.repeat(80));
 
     const organDataString = labResultsResponse.OrganData || '{}';
-    const affectedOrgans = processOrganData(organDataString);
-    console.log(`[REQUEST] Affected organs to use for medications: "${affectedOrgans}"`);
+    const affectedOrgansArray = processOrganData(organDataString);
+    const affectedOrgansString = affectedOrgansArray.map(item => item.display).join(', ');
+    console.log(`[REQUEST] Affected organs to use for medications: "${affectedOrgansString}"`);
 
     // STEP 2.5: Compute abnormal biomarkers
     console.log('\n' + '▓'.repeat(80));
@@ -731,7 +805,7 @@ app.post('/test', async (req, res) => {
       const med = medicationList[i];
       console.log(`\n[REQUEST] Processing medication ${i + 1}/${medicationList.length}`);
 
-      const result = await processMedication(med.name, med.dose, labDate, affectedOrgans, abnormalDescriptions);
+      const result = await processMedication(med.name, med.dose, labDate, affectedOrgansArray, abnormalDescriptions);
 
       // CHANGE: Check if medication should be skipped in response
       if (result._skipInResponse) {
@@ -795,7 +869,7 @@ app.post('/test', async (req, res) => {
 
 
 
-function createBlankResponse(name, dose, date, affectedOrgans = '', reason = 'not found', geminiResult = null, abnormalBiomarkers = []) {
+function createBlankResponse(name, dose, date, reason = 'not found', geminiResult = null, abnormalBiomarkers = [], filteredOrgans = '') {
   console.log(`[RESPONSE] Creating blank response - Reason: ${reason}`);
   return {
     name: name || '',
@@ -807,7 +881,7 @@ function createBlankResponse(name, dose, date, affectedOrgans = '', reason = 'no
     cautionNote: '',
     icd10: '',
     snomed: '',
-    ahaLabTriggerOrgans: affectedOrgans, // Use processed organ data
+    ahaLabTriggerOrgans: filteredOrgans,
     biomarkerAbnormal: '',
     matchType: 'no_match',
     matchReason: reason,
@@ -816,9 +890,9 @@ function createBlankResponse(name, dose, date, affectedOrgans = '', reason = 'no
   };
 }
 
-function formatResponse(name, dose, date, rule, matchType, geminiResult = null, affectedOrgans = '', filteredAbnormals = []) {
+function formatResponse(name, dose, date, rule, matchType, geminiResult = null, filteredOrgans = '', filteredAbnormals = []) {
   console.log(`[RESPONSE] Formatting response - Match Type: ${matchType}`);
-  console.log(`[RESPONSE] Using affected organs: "${affectedOrgans}"`);
+  console.log(`[RESPONSE] Filtered organs: "${filteredOrgans}"`);
   console.log(`[RESPONSE] Filtered abnormals: [${filteredAbnormals.join(', ')}]`);
 
   return {
@@ -827,11 +901,11 @@ function formatResponse(name, dose, date, rule, matchType, geminiResult = null, 
     date: date || '',
     // drugCategory: rule.drugCategory,
     drugClass: rule.drugClass,
-    cautionHeadline: '',
+    // cautionHeadline: rule.cautionHeadline,
     cautionNote: rule.cautionNote,
     icd10: rule.icd10,
     snomed: rule.snomed,
-    ahaLabTriggerOrgans: affectedOrgans || rule.ahaLabTriggerOrgans,
+    ahaLabTriggerOrgans: filteredOrgans,
     biomarkerAbnormal: filteredAbnormals.join(', '),
     matchType,
     ruleHit: rule.rowIndex,
