@@ -1,6 +1,5 @@
 const express = require('express');
 const fs = require('fs');
-
 const fs1 = require('fs').promises;
 const path = require('path');
 const { parse } = require('csv-parse/sync');
@@ -12,17 +11,31 @@ const cors = require('cors');
 const PDFJS = require('pdfjs-dist/legacy/build/pdf.js');
 const pdfjsWorker = require('pdfjs-dist/legacy/build/pdf.worker.js');
 PDFJS.GlobalWorkerOptions.workerSrc = pdfjsWorker;
-
 const Tesseract = require('tesseract.js');
 const AWS = require('aws-sdk');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
+const altNames = require('./altNames');
+const fullBiomarkerList = require('./fullBiomarkerList');
+
 const app = express();
 const PORT = 3000;
 
 app.use(express.json());
-const upload = multer({ dest: 'uploads/' }); // Files go into "uploads/" folder
-
 app.use(cors());
+
+// Multer for single upload (code1 style)
+const uploadSingle = multer({ dest: 'uploads/' });
+
+// Multer for multi upload (code2 style)
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, 'uploads/'),
+  filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`)
+});
+const uploadMulti = multer({ 
+  storage,
+  limits: { fileSize: 50 * 1024 * 1024 }
+});
+
 let rules = [];
 const CSV_HEADERS = [
   'Based_On',
@@ -711,13 +724,14 @@ async function processMedication(medName, dose, date, affectedOrgansArray = [], 
   return formatResponse(medName, dose, date, matchedRule, 'gemini_match', geminiResult, filteredOrgans, filteredAbnormals);
 }
 
-app.post('/test', async (req, res) => {
+// Core processing function extracted from /test endpoint
+async function processTestRequest(body, bearerToken) {
   console.log('\n\n' + '█'.repeat(80));
   console.log('█' + ' '.repeat(78) + '█');
   console.log('█' + '  NEW REQUEST RECEIVED'.padEnd(78) + '█');
   console.log('█' + ' '.repeat(78) + '█');
   console.log('█'.repeat(80) + '\n');
-  console.log('[REQUEST] Body:', JSON.stringify(req.body, null, 2));
+  console.log('[REQUEST] Body:', JSON.stringify(body, null, 2));
 
   const {
     labDate,
@@ -726,18 +740,16 @@ app.post('/test', async (req, res) => {
     medicationList,
     organizationId,
     patientId
-  } = req.body;
+  } = body;
 
   if (!labDate || !patientSex || !biomarkers || !medicationList || !organizationId || !patientId) {
     console.log('[REQUEST] ✗ Missing required fields');
-    return res.status(400).json({
-      error: 'Required fields: labDate, patientSex, biomarkers, medicationList, organizationId, patientId'
-    });
+    throw new Error('Required fields: labDate, patientSex, biomarkers, medicationList, organizationId, patientId');
   }
 
   if (!Array.isArray(medicationList) || !medicationList.length) {
     console.log('[REQUEST] ✗ Invalid request - medicationList must be a non-empty array');
-    return res.status(400).json({ error: 'medicationList must be a non-empty array' });
+    throw new Error('medicationList must be a non-empty array');
   }
 
   console.log(`[REQUEST] Lab Date: ${labDate}`);
@@ -746,128 +758,90 @@ app.post('/test', async (req, res) => {
   console.log(`[REQUEST] Patient ID: ${patientId}`);
   console.log(`[REQUEST] Processing ${medicationList.length} medication(s)`);
 
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    console.log('[REQUEST] ✗ Missing or invalid Authorization header');
-    return res.status(401).json({ error: 'Bearer token required in Authorization header' });
-  }
-
-  const bearerToken = authHeader.substring(7);
   console.log(`[REQUEST] Bearer token extracted: ${bearerToken.substring(0, 20)}...`);
 
-  try {
-    // STEP 1: Call Lab Results API
-    console.log('\n' + '▓'.repeat(80));
-    console.log('▓  STEP 1: Calling Lab Results API'.padEnd(79) + '▓');
-    console.log('▓'.repeat(80));
+  // STEP 1: Call Lab Results API
+  console.log('\n' + '▓'.repeat(80));
+  console.log('▓  STEP 1: Calling Lab Results API'.padEnd(79) + '▓');
+  console.log('▓'.repeat(80));
 
-    const labResultsResponse = await callLabResultsAPI(
-      organizationId,
-      patientId,
-      biomarkers,
-      labDate,
-      bearerToken
-    );
+  const labResultsResponse = await callLabResultsAPI(
+    organizationId,
+    patientId,
+    biomarkers,
+    labDate,
+    bearerToken
+  );
 
-    // STEP 2: Process OrganData
-    console.log('\n' + '▓'.repeat(80));
-    console.log('▓  STEP 2: Processing Organ Data'.padEnd(79) + '▓');
-    console.log('▓'.repeat(80));
+  // STEP 2: Process OrganData
+  console.log('\n' + '▓'.repeat(80));
+  console.log('▓  STEP 2: Processing Organ Data'.padEnd(79) + '▓');
+  console.log('▓'.repeat(80));
 
-    const organDataString = labResultsResponse.OrganData || '{}';
-    const affectedOrgansArray = processOrganData(organDataString);
-    const affectedOrgansString = affectedOrgansArray.map(item => item.display).join(', ');
-    console.log(`[REQUEST] Affected organs to use for medications: "${affectedOrgansString}"`);
+  const organDataString = labResultsResponse.OrganData || '{}';
+  const affectedOrgansArray = processOrganData(organDataString);
+  const affectedOrgansString = affectedOrgansArray.map(item => item.display).join(', ');
+  console.log(`[REQUEST] Affected organs to use for medications: "${affectedOrgansString}"`);
 
-    // STEP 2.5: Compute abnormal biomarkers
-    console.log('\n' + '▓'.repeat(80));
-    console.log('▓  STEP 2.5: Computing Abnormal Biomarkers'.padEnd(79) + '▓');
-    console.log('▓'.repeat(80));
-    const filteredBiomarkers = Object.fromEntries(
-      Object.entries(biomarkers).filter(([_, value]) =>
-        value !== null && value !== undefined && value !== ''
-      )
-    );
+  // STEP 2.5: Compute abnormal biomarkers
+  console.log('\n' + '▓'.repeat(80));
+  console.log('▓  STEP 2.5: Computing Abnormal Biomarkers'.padEnd(79) + '▓');
+  console.log('▓'.repeat(80));
+  const filteredBiomarkers = Object.fromEntries(
+    Object.entries(biomarkers).filter(([_, value]) =>
+      value !== null && value !== undefined && value !== ''
+    )
+  );
 
+  const abnormalDescriptions = getAbnormalBiomarkers(filteredBiomarkers, patientSex);
+  console.log(`[REQUEST] Abnormal biomarkers: [${abnormalDescriptions.join(', ')}]`);
 
-    const abnormalDescriptions = getAbnormalBiomarkers(filteredBiomarkers, patientSex);
-    console.log(`[REQUEST] Abnormal biomarkers: [${abnormalDescriptions.join(', ')}]`);
+  // STEP 3: Process Medications
+  console.log('\n' + '▓'.repeat(80));
+  console.log('▓  STEP 3: Processing Medications'.padEnd(79) + '▓');
+  console.log('▓'.repeat(80));
 
-    // STEP 3: Process Medications
-    console.log('\n' + '▓'.repeat(80));
-    console.log('▓  STEP 3: Processing Medications'.padEnd(79) + '▓');
-    console.log('▓'.repeat(80));
+  const results = [];
+  const skippedMedications = [];
 
-    const results = [];
-    const skippedMedications = [];
+  for (let i = 0; i < medicationList.length; i++) {
+    const med = medicationList[i];
+    console.log(`\n[REQUEST] Processing medication ${i + 1}/${medicationList.length}`);
 
-    for (let i = 0; i < medicationList.length; i++) {
-      const med = medicationList[i];
-      console.log(`\n[REQUEST] Processing medication ${i + 1}/${medicationList.length}`);
+    const result = await processMedication(med.name, med.dose, labDate, affectedOrgansArray, abnormalDescriptions);
 
-      const result = await processMedication(med.name, med.dose, labDate, affectedOrgansArray, abnormalDescriptions);
-
-      // CHANGE: Check if medication should be skipped in response
-      if (result._skipInResponse) {
-        console.log(`[REQUEST] ⚠ Skipping "${med.name}" from response - ${result.reason}`);
-        skippedMedications.push({
-          name: med.name,
-          reason: result.reason,
-          drugClass: result.drugClass,
-          message: result.message
-        });
-      } else {
-        results.push(result);
-      }
+    // CHANGE: Check if medication should be skipped in response
+    if (result._skipInResponse) {
+      console.log(`[REQUEST] ⚠ Skipping "${med.name}" from response - ${result.reason}`);
+      skippedMedications.push({
+        name: med.name,
+        reason: result.reason,
+        drugClass: result.drugClass,
+        message: result.message
+      });
+    } else {
+      results.push(result);
     }
-
-    const response = {
-      //   labResultsData: {
-      //     id: labResultsResponse.id,
-      //     maxScore: labResultsResponse.MaxScore,
-      //     maxScoreOrgan: labResultsResponse.MaxScoreOrgan,
-      //     organData: organDataString,
-      //     affectedOrgans: affectedOrgans,
-      //     prescriptionLink: labResultsResponse.PrescriptionLink,
-      //     recommendations: labResultsResponse.Recommendations,
-      //     resultStatus: labResultsResponse.ResultStatus,
-      //     insightsDiet: labResultsResponse.InsightsDiet,
-      //     insightsHydration: labResultsResponse.InsightsHydration,
-      //     insightsRest: labResultsResponse.InsightsRest
-      //   },
-      medicationList: results
-    };
-
-    // CHANGE: Add skipped medications info if any
-    if (skippedMedications.length > 0) {
-      response.skippedMedications = skippedMedications;
-      console.log(`\n[RESPONSE] ${skippedMedications.length} medication(s) skipped and added to database`);
-    }
-
-    console.log('\n' + '='.repeat(80));
-    console.log('[RESPONSE] Final Response:');
-    console.log('='.repeat(80));
-    console.log(JSON.stringify(response, null, 2));
-    console.log('='.repeat(80) + '\n');
-
-    res.json(response);
-
-  } catch (error) {
-    console.error('\n[ERROR] Request processing failed:', error.message);
-    console.error(error.stack);
-
-    res.status(500).json({
-      error: 'Failed to process request',
-      message: error.message,
-      details: error.response?.data || null
-    });
   }
-});
 
+  const response = {
+    medicationList: results
+  };
 
+  // CHANGE: Add skipped medications info if any
+  if (skippedMedications.length > 0) {
+    response.skippedMedications = skippedMedications;
+    console.log(`\n[RESPONSE] ${skippedMedications.length} medication(s) skipped and added to database`);
+  }
 
+  console.log('\n' + '='.repeat(80));
+  console.log('[RESPONSE] Final Response:');
+  console.log('='.repeat(80));
+  console.log(JSON.stringify(response, null, 2));
+  console.log('='.repeat(80) + '\n');
 
-
+  return response;
+}
 
 function createBlankResponse(name, dose, date, reason = 'not found', geminiResult = null, abnormalBiomarkers = [], filteredOrgans = '') {
   console.log(`[RESPONSE] Creating blank response - Reason: ${reason}`);
@@ -914,14 +888,6 @@ function formatResponse(name, dose, date, rule, matchType, geminiResult = null, 
   };
 }
 
-
-
-
-
-
-
-
-
 const lambdaClient = new LambdaClient({
   region: process.env.AWS_REGION || 'us-east-1',
   credentials: {
@@ -945,13 +911,416 @@ async function extractPdfText(buffer) {
 
   return texts.join('\n\n');
 }
-// Helper: check if file is PDF
-function isPDF(filename) {
-  return filename.toLowerCase().endsWith('.pdf');
+
+// Code2 functions and classes
+function createConcurrencyLimiter(maxConcurrent) {
+  let running = 0;
+  const queue = [];
+
+  return async function limit(fn) {
+    while (running >= maxConcurrent) {
+      await new Promise(resolve => queue.push(resolve));
+    }
+    running++;
+    try {
+      return await fn();
+    } finally {
+      running--;
+      const resolve = queue.shift();
+      if (resolve) resolve();
+    }
+  };
 }
 
+class PerfLogger {
+  constructor(id) {
+    this.id = id;
+    this.startTime = Date.now();
+    this.marks = {};
+  }
 
-app.post('/upload', upload.single('pdf'), async (req, res) => {
+  mark(label) {
+    const now = Date.now();
+    const elapsed = now - this.startTime;
+    const lastMark = Object.keys(this.marks).length > 0 
+      ? now - (this.startTime + Object.values(this.marks)[Object.keys(this.marks).length - 1])
+      : elapsed;
+    
+    this.marks[label] = elapsed;
+    console.log(`⏱️  [${this.id}] ${label}: ${elapsed}ms (Δ +${lastMark}ms)`);
+  }
+
+  summary() {
+    const total = Date.now() - this.startTime;
+    console.log(`📊 [${this.id}] TOTAL TIME: ${total}ms`);
+    return total;
+  }
+}
+
+function createBlankResponseForBiomarkers() {
+  const blank = {};
+  for (const key in fullBiomarkerList) {
+    blank[key] = null;
+  }
+  return {
+    finalBiomarkerValues: blank,
+    finalConfidenceValues: { ...blank },
+    finalUnitValues: { ...blank },
+    labProvider: null,
+    labCollectedDate: null
+  };
+}
+
+function cleanAndExtractBiomarkers(fullText) {
+  return fullText.trim();
+}
+
+async function extractPdfTextAdvanced(buffer, perf) {
+  perf.mark('PDF_START');
+  
+  try {
+    const pdf = await PDFJS.getDocument({ data: new Uint8Array(buffer) }).promise;
+    perf.mark('PDF_LOADED');
+    
+    const pageCount = pdf.numPages;
+    console.log(`📄 PDF has ${pageCount} pages, extracting ALL pages in parallel`);
+
+    const pagePromises = [];
+    for (let i = 1; i <= pageCount; i++) {
+      pagePromises.push(
+        pdf.getPage(i).then(page => 
+          page.getTextContent().then(content => 
+            content.items.map(item => item.str).join(' ')
+          )
+        )
+      );
+    }
+
+    const texts = await Promise.all(pagePromises);
+    perf.mark('PDF_EXTRACTED');
+    
+    const fullText = texts.join('\n\n');
+    const cleanedText = cleanAndExtractBiomarkers(fullText);
+    
+    console.log(`📊 Full: ${fullText.length} chars → Cleaned: ${cleanedText.length} chars`);
+    
+    return cleanedText;
+  } catch (error) {
+    console.error('❌ Error extracting PDF:', error.message);
+    throw error;
+  }
+}
+
+async function extractImageText(buffer, perf) {
+  perf.mark('OCR_START');
+  
+  try {
+    console.log('🖼 Starting OCR...');
+    const result = await Promise.race([
+      Tesseract.recognize(buffer, 'eng'),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('OCR timeout')), 30000)
+      )
+    ]);
+    
+    perf.mark('OCR_COMPLETED');
+    const text = result?.data?.text || '';
+    const cleanedText = cleanAndExtractBiomarkers(text);
+    console.log(`✅ OCR: ${text.length} chars → Cleaned: ${cleanedText.length} chars`);
+    return cleanedText;
+  } catch (error) {
+    console.error('❌ OCR failed:', error.message);
+    throw error;
+  }
+}
+
+function sanitizeValue(rawValue) {
+  if (!rawValue) return null;
+  if (typeof rawValue !== 'string') return rawValue.toString();
+  
+  const trimmed = rawValue.trim();
+  if (trimmed.toLowerCase() === 'negative') return trimmed;
+  
+  const num = parseFloat(trimmed);
+  return !isNaN(num) ? num.toString() : null;
+}
+
+function remapKeys(obj, altNames) {
+  const remapped = {};
+  for (const [key, value] of Object.entries(obj)) {
+    const mapped = altNames[key.toLowerCase().trim()] || key.trim();
+    remapped[mapped] = value;
+  }
+  return remapped;
+}
+
+// Process Gemini response
+function processGeminiResponse(geminiText, perf) {
+  perf.mark('PARSE_GEMINI_START');
+  
+  const cleanedText = geminiText
+    .replace(/```json/g, '')
+    .replace(/```/g, '')
+    .trim();
+
+  const jsonBlocks = cleanedText
+    .split(/\n\s*\n|\n(?=\{)/)
+    .map(block => block.trim())
+    .filter(block => block);
+
+  while (jsonBlocks.length < 5) jsonBlocks.push('{}');
+
+  const results = [{}, {}, {}, {}, {}];
+  
+  for (let i = 0; i < 5; i++) {
+    try {
+      results[i] = JSON.parse(jsonBlocks[i]);
+    } catch (e) {
+      console.warn(`⚠️  JSON block ${i} parse failed`);
+    }
+  }
+
+  perf.mark('PARSE_GEMINI_END');
+  return results;
+}
+
+// Improved Gemini prompt
+function buildGeminiPrompt(extractedText) {
+  return `You are a medical lab report analyzer. Extract ALL biomarkers AND metadata from this blood test report.
+
+Return ONLY 5 JSON objects (one per line), no other text:
+
+1. BIOMARKER VALUES: {"biomarker_name": numerical_value_only, ...}
+2. CONFIDENCE: {"biomarker_name": "CONFIDENT", ...}
+3. UNITS: {"biomarker_name": "unit_string", ...}
+4. LAB PROVIDER: {"labProvider": "LabCorp" or "Quest" or "Other"}
+5. COLLECTION DATE: {"labCollectedDate": "MM/DD/YYYY"}
+
+IMPORTANT FOR BIOMARKERS:
+- Extract ALL biomarkers mentioned in the report
+- Include both current and historical values
+- Do NOT include patient names or dates as biomarkers
+- For values with '<' or '>', convert to approximate number
+- Keep exact names from the report, don't abbreviate
+
+IMPORTANT FOR METADATA:
+- Lab Provider: Look for "Labcorp", "LabCorp", "Quest", "Quest Diagnostics" in headers/footers
+- Collection Date: Look for "Date Collected:", "Collection Date:", "Collected:" followed by a date
+- Use exact format MM/DD/YYYY for the date
+- If lab provider is not clearly Labcorp or Quest, use "Other"
+
+Blood Test Report:
+${extractedText}
+
+Return exactly 5 lines of JSON, nothing else.`;
+}
+
+async function callGeminiAPI(prompt, perf, retries = 2) {
+  const geminiApiKey = process.env.GEMINI_API_KEY;
+  if (!geminiApiKey) throw new Error("GEMINI_API_KEY missing");
+
+  perf.mark('GEMINI_API_CALL_START');
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await axios.post(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`,
+        { 
+          contents: [{ 
+            parts: [{ text: prompt }] 
+          }]
+        },
+        {
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+
+      perf.mark('GEMINI_API_CALL_END');
+      return response.data?.candidates?.[0]?.content?.parts?.[0]?.text || '{}\n{}\n{}\n{}\n{}';
+    } catch (error) {
+      console.warn(`⚠️  Gemini API attempt ${attempt + 1} failed: ${error.message}`);
+      if (attempt === retries) throw error;
+      await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1))); // Exponential backoff
+    }
+  }
+}
+
+async function processExtraction(fullExtractedText, perf) {
+  if (!fullExtractedText || fullExtractedText.trim().length < 20) {
+    console.warn('⚠️  Empty or minimal text extracted');
+    return createBlankResponseForBiomarkers();
+  }
+
+  try {
+    perf.mark('EXTRACTION_START');
+    
+    console.log(`📄 Processing ${fullExtractedText.length} characters of extracted text`);
+
+    const prompt = buildGeminiPrompt(fullExtractedText);
+    perf.mark('PROMPT_READY');
+
+    console.log('🚀 Calling Gemini API with full text...');
+    const geminiText = await callGeminiAPI(prompt, perf);
+    
+    console.log(`✅ Gemini response length: ${geminiText.length} chars`);
+    
+    const [biomarkerJson, confidenceJson, unitJson, labProviderJson, labDateJson] = processGeminiResponse(geminiText, perf);
+
+    console.log(`📊 Parsed biomarkers: ${Object.keys(biomarkerJson).length}`);
+    console.log(`📊 Parsed confidence: ${Object.keys(confidenceJson).length}`);
+    console.log(`📊 Parsed units: ${Object.keys(unitJson).length}`);
+    console.log(`📊 Lab Provider: ${JSON.stringify(labProviderJson)}`);
+    console.log(`📊 Lab Date: ${JSON.stringify(labDateJson)}`);
+
+    perf.mark('REMAP_START');
+    const parsedBiomarkerData = remapKeys(biomarkerJson, altNames);
+    const parsedConfidenceData = remapKeys(confidenceJson, altNames);
+    const parsedUnitData = remapKeys(unitJson, altNames);
+    perf.mark('REMAP_END');
+
+    perf.mark('INIT_FINAL_OBJECTS');
+    const finalBiomarkerValues = {};
+    const finalConfidenceValues = {};
+    const finalUnitValues = {};
+
+    for (const key in fullBiomarkerList) {
+      finalBiomarkerValues[key] = null;
+      finalConfidenceValues[key] = null;
+      finalUnitValues[key] = null;
+    }
+
+    perf.mark('POPULATE_START');
+    
+    for (const [key, value] of Object.entries(parsedBiomarkerData)) {
+      if (key in finalBiomarkerValues) {
+        finalBiomarkerValues[key] = sanitizeValue(value);
+      }
+    }
+
+    for (const [key, value] of Object.entries(parsedConfidenceData)) {
+      if (key in finalConfidenceValues) {
+        finalConfidenceValues[key] = value ? value.toString() : null;
+      }
+    }
+
+    for (const [key, value] of Object.entries(parsedUnitData)) {
+      if (key in finalUnitValues) {
+        finalUnitValues[key] = value || null;
+      }
+    }
+
+    if ((finalBiomarkerValues["Eosinophil"] === "0" || finalBiomarkerValues["Eosinophil"] === "0.0") &&
+        parseFloat(finalBiomarkerValues["% Eosinophil"]) > 0) {
+      finalBiomarkerValues["Eosinophil"] = "30";
+    }
+
+    if ((finalBiomarkerValues["Basophil"] === "0" || finalBiomarkerValues["Basophil"] === "0.0") &&
+        parseFloat(finalBiomarkerValues["% Basophil"]) > 0) {
+      finalBiomarkerValues["Basophil"] = "30";
+    }
+
+    perf.mark('POPULATE_END');
+
+    const filteredBiomarkers = Object.fromEntries(
+      Object.entries(finalBiomarkerValues).filter(([_, value]) =>
+        value !== null && value !== undefined && value !== ''
+      )
+    );
+
+    // Extract metadata
+    const labProvider = labProviderJson.labProvider || null;
+    const labCollectedDate = labDateJson.labCollectedDate || null;
+
+    return { 
+      filteredBiomarkers,
+      labProvider,
+      labCollectedDate
+    };
+
+  } catch (error) {
+    console.error('❌ Extraction error:', error.message);
+    return createBlankResponseForBiomarkers();
+  }
+}
+
+async function processSinglePdf(file, fileIndex) {
+  const perf = new PerfLogger(`FILE_${fileIndex}_${file.originalname}`);
+  
+  try {
+    perf.mark('START');
+    const filePath = path.resolve(file.path);
+    
+    perf.mark('READ_FILE_START');
+    const fileBuffer = await fs1.readFile(filePath);
+    perf.mark('READ_FILE_END');
+
+    let fullExtractedText = '';
+
+    // Extract text
+    if (file.originalname.toLowerCase().endsWith('.pdf')) {
+      fullExtractedText = await extractPdfTextAdvanced(fileBuffer, perf);
+    } else {
+      fullExtractedText = await extractImageText(fileBuffer, perf);
+    }
+
+    const cleanupPromise = fs1.unlink(filePath).catch(() => {});
+
+    const result = await processExtraction(fullExtractedText, perf);
+
+    await cleanupPromise;
+    perf.mark('CLEANUP_END');
+
+    perf.summary();
+
+    return {
+      fileName: file.originalname,
+      success: true,
+      ...result
+    };
+
+  } catch (err) {
+    console.error(`❌ Error processing ${file.originalname}:`, err.message);
+    await fs1.unlink(path.resolve(file.path)).catch(() => {});
+    
+    perf.summary();
+
+    return {
+      fileName: file.originalname,
+      success: false,
+      error: err.message
+    };
+  }
+}
+
+// Endpoints
+
+// /test endpoint from code1
+app.post('/test', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.log('[REQUEST] ✗ Missing or invalid Authorization header');
+    return res.status(401).json({ error: 'Bearer token required in Authorization header' });
+  }
+
+  const bearerToken = authHeader.substring(7);
+
+  try {
+    const response = await processTestRequest(req.body, bearerToken);
+    res.json(response);
+  } catch (error) {
+    console.error('\n[ERROR] Request processing failed:', error.message);
+    console.error(error.stack);
+
+    res.status(500).json({
+      error: 'Failed to process request',
+      message: error.message,
+      details: error.response?.data || null
+    });
+  }
+});
+
+// /upload endpoint from code1 (Lambda-based)
+app.post('/upload', uploadSingle.single('pdf'), async (req, res) => {
   try {
     console.log('✅ /upload API hit');
 
@@ -1017,8 +1386,132 @@ app.post('/upload', upload.single('pdf'), async (req, res) => {
   }
 });
 
+// /upload-multi endpoint from code2 (local processing, internal call to processTestRequest)
+app.post('/upload-multi', uploadMulti.array('pdfs', 10), async (req, res) => {
+  const globalPerf = new PerfLogger('UPLOAD_MULTI');
+  
+  try {
+    globalPerf.mark('API_HIT');
 
+    const files = req.files;
+    if (!files || files.length === 0) {
+      return res.status(400).json({ error: 'No files uploaded.' });
+    }
 
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Bearer token required in Authorization header' });
+    }
+    const bearerToken = authHeader.substring(7); 
+
+    console.log(`\n📦 ========================================`);
+    console.log(`📦 Processing ${files.length} file(s) in FULL PARALLEL...`);
+    console.log(`📦 ========================================\n`);
+
+    globalPerf.mark('FILES_VALIDATED');
+
+    const limit = createConcurrencyLimiter(5); 
+    
+    const processingPromises = files.map((file, idx) => 
+      limit(() => processSinglePdf(file, idx + 1))
+    );
+
+    const results = await Promise.all(processingPromises);
+
+    globalPerf.mark('ALL_FILES_PROCESSED');
+
+    const successful = results.filter(r => r.success);
+    const failed = results.filter(r => !r.success);
+
+    // Merge logic for latest biomarkers
+    let latestBiomarkers = {};
+    let latestLabProvider = null;
+    let latestLabCollectedDate = null;
+
+    if (successful.length > 0) {
+      const successfulWithDates = successful
+        .map(r => {
+          if (!r.labCollectedDate) return null;
+          const parts = r.labCollectedDate.split('/');
+          if (parts.length !== 3) return null;
+          const month = parseInt(parts[0], 10);
+          const day = parseInt(parts[1], 10);
+          const year = parseInt(parts[2], 10);
+          if (isNaN(month) || isNaN(day) || isNaN(year)) return null;
+          const date = new Date(year, month - 1, day);
+          if (isNaN(date.getTime())) return null;
+          return { date, biomarkers: r.filteredBiomarkers, provider: r.labProvider };
+        })
+        .filter(Boolean);
+
+      if (successfulWithDates.length > 0) {
+        // Track latest value per biomarker
+        const biomarkerHistory = new Map();
+        for (const { date, biomarkers, provider } of successfulWithDates) {
+          for (const [key, value] of Object.entries(biomarkers)) {
+            const existing = biomarkerHistory.get(key);
+            if (!existing || date > existing.date) {
+              biomarkerHistory.set(key, { value, date });
+            }
+          }
+        }
+
+        latestBiomarkers = Object.fromEntries(
+          Array.from(biomarkerHistory.entries()).map(([key, { value }]) => [key, value])
+        );
+
+        // Find max date
+        const maxDate = new Date(Math.max(...successfulWithDates.map(r => r.date)));
+        latestLabCollectedDate = maxDate.toLocaleDateString('en-US');
+
+        // Find provider from a report on max date (take first)
+        const latestReport = successfulWithDates.find(r => r.date.getTime() === maxDate.getTime());
+        latestLabProvider = latestReport ? latestReport.provider : null;
+      } else {
+        console.warn('⚠️ No valid dates found in successful reports; using blank merged result.');
+      }
+    }
+
+    globalPerf.mark('RESPONSE_READY');
+
+    // REMOVED: Internal call to biomarker analysis (/test) - Frontend now calls /test separately with dynamic user inputs
+    // (Previously hardcoded sex="male" and static medications; now dynamic via frontend)
+    const medicationResult = null; // Not computed here
+
+    globalPerf.mark('ALL_PROCESSING_COMPLETE');
+    globalPerf.summary();
+
+    console.log(`\n✅ ========================================`);
+    console.log(`✅ Success: ${successful.length} | Failed: ${failed.length}`);
+    console.log(`✅ Latest Biomarkers Count: ${Object.keys(latestBiomarkers).length}`);
+    console.log(`✅ Total Time: ${globalPerf.marks['ALL_PROCESSING_COMPLETE']}ms`);
+    console.log(`✅ ========================================\n`);
+
+    return res.status(200).json({
+      message: 'Files processed.',
+      totalFiles: files.length,
+      successfulCount: successful.length,
+      failedCount: failed.length,
+      totalTimeMs: globalPerf.marks['ALL_PROCESSING_COMPLETE'],
+      latestBiomarkers,  // Used as 'biomarkers' in /test call
+      latestLabProvider,
+      latestLabCollectedDate,  // Used as 'labDate' in /test call
+      // REMOVED: "medicationResult" - Now handled by separate /test call in frontend
+    });
+
+  } catch (err) {
+    console.error('❌ Error in /upload-multi:', err);
+    globalPerf.summary();
+    return res.status(500).json({
+      error: err.message || 'Internal server error'
+    });
+  }
+});
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
 
 app.listen(PORT, () => {
   console.log('\n' + '█'.repeat(80));
