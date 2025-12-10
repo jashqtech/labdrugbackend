@@ -21,7 +21,19 @@ const app = express();
 const PORT = process.env.PORT;
 
 app.use(express.json());
-app.use(cors());
+const allowedOrigins = [
+  "https://druganalysisdashboard.netlify.app",
+  "http://localhost:5173"
+];
+
+app.use(
+  cors({
+    origin: allowedOrigins,
+    methods: "GET,POST,PUT,PATCH,DELETE",
+    allowedHeaders: "Content-Type,Authorization",
+    credentials: true,
+  })
+);
 
 // Multer for single upload (code1 style)
 const uploadSingle = multer({ dest: 'uploads/' });
