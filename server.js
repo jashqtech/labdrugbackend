@@ -352,7 +352,7 @@ If not, set foundInDatabase to false and provide the actual real-world drug clas
     console.log('[STEP 2] Sending request to Gemini API...');
 
     const geminiResponse = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${geminiApiKey}`,
       {
         contents: [{ parts: [{ text: prompt }] }]
       },
